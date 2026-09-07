@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>ツールド長野 CPチェック</title>
+<title>山岳マラソン CPチェック</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -64,7 +64,7 @@ button {
 
 <body>
 
-<h1>ツールド長野</h1>
+<h1>山岳マラソン</h1>
 
 <div id="cp"></div>
 
@@ -78,7 +78,6 @@ button {
 カメラ起動前
 </div>
 
-
 <script>
 
 // ==========================================
@@ -91,6 +90,7 @@ const API_URL =
 
 // ==========================================
 // CP番号をURLから取得
+// 例：check.html?cp=1 → CP1
 // ==========================================
 
 const params = new URLSearchParams(location.search);
@@ -168,7 +168,6 @@ function onScanSuccess(decodedText) {
 
   const now = Date.now();
 
-
   // 同じQRを3秒以内に何度も読まない
   if (
     decodedText === lastRunner &&
@@ -180,12 +179,11 @@ function onScanSuccess(decodedText) {
   lastRunner = decodedText;
   lastScanTime = now;
 
-
   console.log("QR:", decodedText);
 
 
   // ========================================
-  // QRの内容を取得
+  // QRの内容からrunnerを取得
   // ========================================
 
   let runner = "";
@@ -199,8 +197,8 @@ function onScanSuccess(decodedText) {
 
   } catch (error) {
 
-    // URL形式でない場合
-    // QRに直接「001」などが入っている場合にも対応
+    // URL形式でない場合は、
+    // QRの内容そのものを選手番号として扱う
 
     runner = decodedText;
 
@@ -222,15 +220,25 @@ function onScanSuccess(decodedText) {
   // GASへ送信
   // ========================================
 
-  function sendRecord(runner) {
+  sendRecord(runner);
+}
+
+
+// ==========================================
+// GASへデータ送信
+// ==========================================
+
+function sendRecord(runner) {
 
   document.getElementById("status").textContent =
     "記録中　No." + runner;
+
 
   const data = {
     runner: runner,
     cp: CP_ID
   };
+
 
   fetch(API_URL, {
 
@@ -243,6 +251,7 @@ function onScanSuccess(decodedText) {
     }
 
   })
+
   .then(response => response.text())
 
   .then(result => {
@@ -260,7 +269,8 @@ function onScanSuccess(decodedText) {
 
       document.getElementById("status").innerHTML =
         '<span class="error">' +
-        "サーバーエラー" +
+        "サーバーエラー<br>" +
+        result +
         "</span>";
 
     }
@@ -278,3 +288,8 @@ function onScanSuccess(decodedText) {
   });
 
 }
+
+</script>
+
+</body>
+</html>
