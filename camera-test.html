@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>カメラテスト</title>
+
+<style>
+body {
+  font-family: sans-serif;
+  text-align: center;
+  padding: 20px;
+}
+
+video {
+  width: 100%;
+  max-width: 400px;
+  background: black;
+}
+
+button {
+  font-size: 22px;
+  padding: 15px 30px;
+  margin: 20px;
+}
+
+#message {
+  font-size: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>カメラテスト</h1>
+
+<button onclick="startCamera()">
+カメラを起動
+</button>
+
+<br>
+
+<video id="video" autoplay playsinline></video>
+
+<p id="message">カメラ起動前</p>
+
+<script>
+
+async function startCamera() {
+
+  const message =
+    document.getElementById("message");
+
+  try {
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment"
+        },
+        audio: false
+      });
+
+    const video =
+      document.getElementById("video");
+
+    video.srcObject = stream;
+
+    message.textContent =
+      "カメラ起動成功";
+
+  } catch (error) {
+
+    message.textContent =
+      "カメラ起動失敗：" + error.name;
+
+    console.log(error);
+
+  }
+
+}
+
+</script>
+
+</body>
+</html>
