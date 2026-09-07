@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ツールド長野2026 CPチェック</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+
+body {
+  font-family: sans-serif;
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+  background: #f5f5f5;
+}
+
+h1 {
+  font-size: 28px;
+}
+
+#cp {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 10px;
+}
+
+#reader {
+  width: 100%;
+  max-width: 400px;
+  margin: 20px auto;
+  background: white;
+}
+
+#status {
+  font-size: 22px;
+  margin: 20px;
+  padding: 15px;
+  background: white;
+}
+
+.ok {
+  color: green;
+  font-weight: bold;
+}
+
+.error {
+  color: red;
+  font-weight: bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>ツールド長野2026</h1>
+
+<div id="cp">CP確認中...</div>
+
+<div id="reader"></div>
+
+<div id="status">
+QRコード待機中
+</div>
+
+<script>
+
+// ==================================================
+// ここにGASのWebアプリURLを入れる
+// ==================================================
+
+const API_URL = https://script.google.com/macros/s/AKfycbw1nGxnuATbVPHMLag1daFNAzysAwLajM13tx-5q0Cq19Oxv_9aF2VBKGaz3QRZrkJW/exec
+"https://script.google.com/macros/s/ここをあなたのURLに変更/exec";
+
+
+// ==================================================
+// URLからCP番号を取得
+// 例：check.html?cp=1
+// ==================================================
+
+const params = new URLSearchParams(location.search);
+
+const CP_ID = params.get("cp");
+
+
+// CP番号表示
+
+document.getElementById("cp").textContent =
+  CP_ID ? "CP" + CP_ID : "CP番号エラー";
+
+
+// ==================================================
+// 二重読み取り防止
+// ==================================================
+
+let lastRunner = "";
+
+let lastScanTime = 0;
+
+
+// ==================================================
+// QR読み取り成功
+// ==================================================
+
+function onScanSuccess(decodedText) {
+
+  const now = Date.now();
+
+  // 3秒以内の同じ選手は無視
+  if (
+    decodedText === lastRunner &&
+    now - lastScanTime < 3000
+  ) {
+    return;
+  }
+
+  lastRunner = decodedText;
+  lastScanTime = now;
+
+
+  // QRの内容をURLとして解析
+
+  try {
+
+    const url = new URL(decodedText);
+
+    const runner = url.searchParams.get("runner");
+
+    if (!runner) {
+
+      document.getElementById("status").innerHTML =
+        '<span class="error">QRコードが正しくありません</span>';
+
+      return;
+    }
+
+
+    // 記録送信
+
+    sendRecord(runner);
+
+  } catch (e) {
+
+    document.getElementById("status").innerHTML =
+      '<span class="error">QRコードを読み取れません</span>';
+
+  }
+
+}
+
+
+// ==================================================
+// GASへ記録送信
+// ==================================================
+
+function sendRecord(runner) {
+
+  document.getElementById("status").textContent =
+    "記録中 No." + runner;
+
+
+  fetch(API_URL, {
+
+    method: "POST",
+
+    body: JSON.stringify({
+
+      runner: runner,
+
+      cp: CP_ID
+
+    })
+
+  })
+
+  .then(response => response.text())
+
+  .then(result => {
+
+    document.getElementById("status").innerHTML =
+      '<span class="ok">' +
+      "No." + runner +
+      "　CP" + CP_ID +
+      "　記録OK" +
+      "</span>";
+
+  })
+
+  .catch(error => {
+
+    document.getElementById("status").innerHTML =
+      '<span class="error">' +
+      "送信エラー" +
+      "</span>";
+
+  });
+
+}
+
+
+// ==================================================
+// QRカメラ起動
+// ==================================================
+
+const scanner = new Html5Qrcode("reader");
+
+
+// 背面カメラを使用
+
+const cameraConfig = {
+  facingMode: "environment"
+};
+
+
+scanner.start(
+
+  cameraConfig,
+
+  {
+    fps: 10,
+    qrbox: {
+      width: 250,
+      height: 250
+    }
+  },
+
+  onScanSuccess
+
+)
+
+.catch(error => {
+
+  document.getElementById("status").innerHTML =
+    '<span class="error">' +
+    "カメラを起動できません。" +
+    "<br>カメラの使用を許可してください。" +
+    "</span>";
+
+});
+
+</script>
+
+</body>
+</html>
