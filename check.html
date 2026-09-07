@@ -132,12 +132,16 @@ let lastScanTime = 0;
 
 function startCamera() {
 
+  // 二重起動防止
   if (scanner) {
     return;
   }
 
   document.getElementById("status").textContent =
     "カメラ起動中...";
+
+  document.getElementById("startButton").style.display =
+    "none";
 
   scanner = new Html5Qrcode("reader");
 
@@ -166,14 +170,14 @@ function startCamera() {
     document.getElementById("status").textContent =
       "QRコード待機中";
 
-    document.getElementById("startButton").style.display =
-      "none";
-
   })
 
   .catch(function(error) {
 
     scanner = null;
+
+    document.getElementById("startButton").style.display =
+      "inline-block";
 
     document.getElementById("status").innerHTML =
       '<span class="error">' +
@@ -191,12 +195,14 @@ function startCamera() {
 
 function onScanSuccess(decodedText) {
 
+  // 処理中なら無視
   if (isProcessing) {
     return;
   }
 
   const now = Date.now();
 
+  // 同じQRを3秒以内に読んだ場合は無視
   if (
     decodedText === lastRunner &&
     now - lastScanTime < 3000
@@ -209,10 +215,18 @@ function onScanSuccess(decodedText) {
 
   isProcessing = true;
 
+  // ========================================
+  // カメラ停止
+  // ========================================
+
   stopCamera()
     .then(function() {
 
       let runner = "";
+
+      // ====================================
+      // QRの内容からrunnerを取得
+      // ====================================
 
       try {
 
@@ -223,9 +237,13 @@ function onScanSuccess(decodedText) {
 
       } catch (error) {
 
+        // URL形式でない場合
+        // QRの文字そのものを選手番号として扱う
+
         runner = decodedText;
 
       }
+
 
       if (!runner) {
 
@@ -234,12 +252,18 @@ function onScanSuccess(decodedText) {
           "選手番号を取得できません" +
           "</span>";
 
-        setTimeout(function() {
-          restartCamera();
-        }, 1500);
+        isProcessing = false;
+
+        document.getElementById("startButton").style.display =
+          "inline-block";
 
         return;
       }
+
+
+      // ====================================
+      // GASへ送信
+      // ====================================
 
       sendRecord(runner);
 
@@ -296,6 +320,7 @@ function sendRecord(runner) {
     cp: CP_ID
   };
 
+
   fetch(API_URL, {
 
     method: "POST",
@@ -316,16 +341,25 @@ function sendRecord(runner) {
 
   .then(function(result) {
 
-    if (result === "OK") {
+    if (result.trim() === "OK") {
+
+      // ==================================
+      // 記録成功
+      // ==================================
 
       document.getElementById("status").innerHTML =
         '<span class="ok">' +
         "No." + runner +
         "　CP" + CP_ID +
-        "<br>記録しました" +
+        "<br><br>" +
+        "記録しました" +
         "</span>";
 
     } else {
+
+      // ==================================
+      // サーバー応答エラー
+      // ==================================
 
       document.getElementById("status").innerHTML =
         '<span class="error">' +
@@ -335,13 +369,26 @@ function sendRecord(runner) {
 
     }
 
-    setTimeout(function() {
-      restartCamera();
-    }, 1000);
+    // ==================================
+    // カメラは再起動しない
+    // 「カメラを起動」ボタンを表示
+    // ==================================
+
+    isProcessing = false;
+
+    lastRunner = "";
+
+    document.getElementById("startButton").style.display =
+      "inline-block";
 
   })
 
+
   .catch(function(error) {
+
+    // ==================================
+    // 通信エラー
+    // ==================================
 
     document.getElementById("status").innerHTML =
       '<span class="error">' +
@@ -349,31 +396,16 @@ function sendRecord(runner) {
       error +
       "</span>";
 
-    setTimeout(function() {
-      restartCamera();
-    }, 2000);
+    // ==================================
+    // エラーの場合もボタンを表示
+    // ==================================
+
+    isProcessing = false;
+
+    document.getElementById("startButton").style.display =
+      "inline-block";
 
   });
-
-}
-
-
-// ==========================================
-// カメラ再起動
-// ==========================================
-
-function restartCamera() {
-
-  isProcessing = false;
-
-  document.getElementById("status").textContent =
-    "カメラ再起動中...";
-
-  setTimeout(function() {
-
-    startCamera();
-
-  }, 300);
 
 }
 
