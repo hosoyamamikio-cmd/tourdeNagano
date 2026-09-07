@@ -9,11 +9,12 @@
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
+
 body {
   font-family: sans-serif;
   text-align: center;
   margin: 0;
-  padding: 20px 10px;
+  padding: 20px 10px 110px 10px;
   background: #f5f5f5;
   box-sizing: border-box;
 }
@@ -56,9 +57,27 @@ h1 {
 
 button {
   font-size: 22px;
-  padding: 15px 30px;
-  margin: 10px;
+  padding: 16px 20px;
+  margin: 0;
   cursor: pointer;
+}
+
+#startButton {
+  position: fixed;
+  left: 50%;
+  bottom: calc(15px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1000;
+
+  width: 85%;
+  max-width: 360px;
+
+  font-size: 22px;
+  font-weight: bold;
+
+  padding: 16px 20px;
+
+  border-radius: 12px;
 }
 
 .ok {
@@ -70,6 +89,7 @@ button {
   color: red;
   font-weight: bold;
 }
+
 </style>
 
 </head>
@@ -78,17 +98,22 @@ button {
 
 <h1>ツールド長野</h1>
 
-<div id="cp">CP確認中...</div>
+<div id="cp">
+  CP確認中...
+</div>
 
-<button id="startButton" onclick="startCamera()">
-カメラを起動
-</button>
 
 <div id="reader"></div>
 
+
 <div id="status">
-カメラ起動前
+  カメラ起動前
 </div>
+
+
+<button id="startButton" onclick="startCamera()">
+  カメラを起動
+</button>
 
 
 <script>
@@ -103,7 +128,10 @@ const API_URL =
 
 // ==========================================
 // CP番号をURLから取得
-// 例：check.html?cp=1 → CP1
+//
+// 例
+// check.html?cp=1
+// → CP1
 // ==========================================
 
 const params =
@@ -117,7 +145,7 @@ document.getElementById("cp").textContent =
 
 
 // ==========================================
-// QR読み取り準備
+// QR読み取り用
 // ==========================================
 
 let scanner = null;
@@ -126,11 +154,20 @@ let isProcessing = false;
 
 
 // ==========================================
-// 音声準備
-// Android対策
+// 音声
 // ==========================================
 
 let audioContext = null;
+
+
+// ==========================================
+// 音声準備
+//
+// 「カメラを起動」ボタンを押した時に
+// 音声機能も準備する
+//
+// Android対策
+// ==========================================
 
 function prepareAudio() {
 
@@ -139,18 +176,25 @@ function prepareAudio() {
     if (!audioContext) {
 
       audioContext =
-        new (window.AudioContext ||
-             window.webkitAudioContext)();
+        new (
+          window.AudioContext ||
+          window.webkitAudioContext
+        )();
 
     }
 
-    if (audioContext.state === "suspended") {
+
+    if (
+      audioContext.state ===
+      "suspended"
+    ) {
 
       audioContext.resume();
 
     }
 
-  } catch (e) {
+  }
+  catch (e) {
 
     console.log(
       "音声準備エラー:",
@@ -163,20 +207,24 @@ function prepareAudio() {
 
 
 // ==========================================
-// 読み取り成功音
+// QR読み取り成功音
 // ==========================================
 
 function beep() {
 
   try {
 
-    // 音声が準備されていなければ準備
     if (!audioContext) {
+
       prepareAudio();
+
     }
 
-    // Android等で停止状態なら再開
-    if (audioContext.state === "suspended") {
+
+    if (
+      audioContext.state ===
+      "suspended"
+    ) {
 
       audioContext.resume();
 
@@ -186,20 +234,25 @@ function beep() {
     const oscillator =
       audioContext.createOscillator();
 
+
     const gainNode =
       audioContext.createGain();
 
 
-    oscillator.connect(gainNode);
+    oscillator.connect(
+      gainNode
+    );
+
 
     gainNode.connect(
       audioContext.destination
     );
 
 
-    // ピッという電子音
+    // ピッという音
     oscillator.frequency.value =
       1000;
+
 
     oscillator.type =
       "sine";
@@ -219,12 +272,13 @@ function beep() {
 
     oscillator.start();
 
+
     oscillator.stop(
       audioContext.currentTime + 0.15
     );
 
-
-  } catch (e) {
+  }
+  catch (e) {
 
     console.log(
       "音声エラー:",
@@ -242,22 +296,31 @@ function beep() {
 
 function startCamera() {
 
-  // ========================================
-  // ★ Android対策
-  // ボタンを押した時点で音声を有効化
-  // ========================================
+  // ----------------------------------------
+  // Android対策
+  // ボタンを押した時点で音声を準備
+  // ----------------------------------------
 
   prepareAudio();
 
 
+  // ----------------------------------------
   // 二重起動防止
+  // ----------------------------------------
+
   if (scanner !== null) {
+
     return;
+
   }
 
 
   isProcessing = false;
 
+
+  // ----------------------------------------
+  // ボタンを隠す
+  // ----------------------------------------
 
   document.getElementById(
     "startButton"
@@ -265,20 +328,35 @@ function startCamera() {
     "none";
 
 
+  // ----------------------------------------
+  // 状態表示
+  // ----------------------------------------
+
   document.getElementById(
     "status"
   ).textContent =
     "カメラ起動中...";
 
 
-  scanner =
-    new Html5Qrcode("reader");
+  // ----------------------------------------
+  // QRスキャナー作成
+  // ----------------------------------------
 
+  scanner =
+    new Html5Qrcode(
+      "reader"
+    );
+
+
+  // ----------------------------------------
+  // カメラ開始
+  // ----------------------------------------
 
   scanner.start(
 
     {
-      facingMode: "environment"
+      facingMode:
+        "environment"
     },
 
     {
@@ -315,6 +393,7 @@ function startCamera() {
     scanner = null;
 
 
+    // エラー時はボタンを再表示
     document.getElementById(
       "startButton"
     ).style.display =
@@ -325,7 +404,8 @@ function startCamera() {
       "status"
     ).innerHTML =
       '<span class="error">' +
-      "カメラを起動できません<br><br>" +
+      "カメラを起動できません" +
+      "<br><br>" +
       error +
       "</span>";
 
@@ -338,17 +418,24 @@ function startCamera() {
 // QRコード読み取り成功
 // ==========================================
 
-function onScanSuccess(decodedText) {
+function onScanSuccess(
+  decodedText
+) {
 
+  // ----------------------------------------
   // 処理中なら無視
+  // ----------------------------------------
+
   if (isProcessing) {
+
     return;
+
   }
 
 
-  // ========================================
-  // ★ 二重読み取り防止
-  // ========================================
+  // ----------------------------------------
+  // 二重読み取り防止
+  // ----------------------------------------
 
   isProcessing = true;
 
@@ -359,37 +446,39 @@ function onScanSuccess(decodedText) {
   );
 
 
-  // ========================================
-  // ★ 成功音
-  // ========================================
+  // ----------------------------------------
+  // 成功音
+  // ----------------------------------------
 
   beep();
 
 
-  // ========================================
-  // ★ Android対策
-  // 音が出ない場合は振動
-  // ========================================
+  // ----------------------------------------
+  // Android対策
+  // 振動
+  // ----------------------------------------
 
   if (
     "vibrate" in navigator
   ) {
 
-    navigator.vibrate(150);
+    navigator.vibrate(
+      150
+    );
 
   }
 
 
-  // ========================================
+  // ----------------------------------------
   // カメラ停止
-  // ========================================
+  // ----------------------------------------
 
   stopCamera();
 
 
-  // ========================================
+  // ----------------------------------------
   // 選手番号取得
-  // ========================================
+  // ----------------------------------------
 
   let runner = "";
 
@@ -397,13 +486,17 @@ function onScanSuccess(decodedText) {
   try {
 
     const url =
-      new URL(decodedText);
+      new URL(
+        decodedText
+      );
+
 
     runner =
-      url.searchParams.get("runner");
+      url.searchParams.get(
+        "runner"
+      );
 
   }
-
   catch (error) {
 
     // URL形式でない場合
@@ -415,9 +508,9 @@ function onScanSuccess(decodedText) {
   }
 
 
-  // ========================================
-  // 選手番号取得エラー
-  // ========================================
+  // ----------------------------------------
+  // 選手番号エラー
+  // ----------------------------------------
 
   if (!runner) {
 
@@ -443,11 +536,13 @@ function onScanSuccess(decodedText) {
   }
 
 
-  // ========================================
+  // ----------------------------------------
   // GASへ送信
-  // ========================================
+  // ----------------------------------------
 
-  sendRecord(runner);
+  sendRecord(
+    runner
+  );
 
 }
 
@@ -458,14 +553,23 @@ function onScanSuccess(decodedText) {
 
 function stopCamera() {
 
-  if (scanner === null) {
+  if (
+    scanner === null
+  ) {
+
     return;
+
   }
 
 
   const currentScanner =
     scanner;
 
+
+  // ここでnullにして
+  // 再起動できる状態にする
+  //
+  // ただし自動再起動はしない
 
   scanner = null;
 
@@ -499,13 +603,24 @@ function stopCamera() {
 // GASへデータ送信
 // ==========================================
 
-function sendRecord(runner) {
+function sendRecord(
+  runner
+) {
+
+  // ----------------------------------------
+  // 送信中表示
+  // ----------------------------------------
 
   document.getElementById(
     "status"
   ).textContent =
-    "記録中　No." + runner;
+    "記録中　No." +
+    runner;
 
+
+  // ----------------------------------------
+  // 送信データ
+  // ----------------------------------------
 
   const data = {
 
@@ -518,49 +633,65 @@ function sendRecord(runner) {
   };
 
 
-  // ========================================
+  // ----------------------------------------
   // GASへ送信
-  // ========================================
+  //
+  // no-corsを使用
+  // ----------------------------------------
 
-  fetch(API_URL, {
+  fetch(
+    API_URL,
+    {
 
-    method: "POST",
+      method:
+        "POST",
 
-    mode: "no-cors",
+      mode:
+        "no-cors",
 
-    body:
-      JSON.stringify(data),
+      body:
+        JSON.stringify(
+          data
+        ),
 
-    headers: {
+      headers: {
 
-      "Content-Type":
-        "text/plain"
+        "Content-Type":
+          "text/plain"
+
+      }
 
     }
+  );
 
-  });
 
-
-  // ========================================
+  // ----------------------------------------
   // 記録完了表示
-  // ========================================
+  // ----------------------------------------
 
   document.getElementById(
     "status"
   ).innerHTML =
     '<span class="ok">' +
+
     "No." +
     runner +
+
     "　CP" +
     CP_ID +
+
     "<br><br>" +
+
     "記録しました" +
+
     "</span>";
 
 
-  // ========================================
-  // ★ カメラ起動ボタンを表示
-  // ========================================
+  // ----------------------------------------
+  // カメラ起動ボタンを表示
+  //
+  // 自動では起動しない
+  // ----------------------------------------
 
   document.getElementById(
     "startButton"
@@ -568,9 +699,9 @@ function sendRecord(runner) {
     "inline-block";
 
 
-  // ========================================
-  // 次のQR読み取りを許可
-  // ========================================
+  // ----------------------------------------
+  // 次の読み取りを許可
+  // ----------------------------------------
 
   isProcessing = false;
 
@@ -580,9 +711,13 @@ function sendRecord(runner) {
 // ==========================================
 // 初期状態
 // ==========================================
-
-// ★ ページを開いただけでは
-// ★ カメラを起動しない
+//
+// ページを開いただけでは
+// カメラを起動しない
+//
+// 「カメラを起動」ボタンを押した時だけ
+// startCamera() が実行される
+// ==========================================
 
 scanner = null;
 
