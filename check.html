@@ -58,6 +58,7 @@ button {
   font-size: 22px;
   padding: 15px 30px;
   margin: 10px;
+  cursor: pointer;
 }
 
 .ok {
@@ -102,7 +103,6 @@ const API_URL =
 
 // ==========================================
 // CP番号をURLから取得
-// 例：check.html?cp=1 → CP1
 // ==========================================
 
 const params = new URLSearchParams(location.search);
@@ -137,11 +137,13 @@ function startCamera() {
     return;
   }
 
-  document.getElementById("status").textContent =
-    "カメラ起動中...";
+  isProcessing = false;
 
   document.getElementById("startButton").style.display =
     "none";
+
+  document.getElementById("status").textContent =
+    "カメラ起動中...";
 
   scanner = new Html5Qrcode("reader");
 
@@ -158,7 +160,6 @@ function startCamera() {
         width: 200,
         height: 200
       }
-
     },
 
     onScanSuccess
@@ -186,6 +187,7 @@ function startCamera() {
       "</span>";
 
   });
+
 }
 
 
@@ -202,7 +204,7 @@ function onScanSuccess(decodedText) {
 
   const now = Date.now();
 
-  // 同じQRを3秒以内に読んだ場合は無視
+  // 同じQRの連続読み取りを防止
   if (
     decodedText === lastRunner &&
     now - lastScanTime < 3000
@@ -213,61 +215,60 @@ function onScanSuccess(decodedText) {
   lastRunner = decodedText;
   lastScanTime = now;
 
+  // 処理中にする
   isProcessing = true;
 
-  // ========================================
   // カメラ停止
-  // ========================================
+  stopCamera().then(function() {
 
-  stopCamera()
-    .then(function() {
+    let runner = "";
 
-      let runner = "";
+    // ========================================
+    // QRコードから選手番号を取得
+    // ========================================
 
-      // ====================================
-      // QRの内容からrunnerを取得
-      // ====================================
+    try {
 
-      try {
+      const url = new URL(decodedText);
 
-        const url = new URL(decodedText);
+      runner =
+        url.searchParams.get("runner");
 
-        runner =
-          url.searchParams.get("runner");
+    } catch (error) {
 
-      } catch (error) {
+      // URLでない場合はQRの文字そのものを使用
+      runner = decodedText;
 
-        // URL形式でない場合
-        // QRの文字そのものを選手番号として扱う
-
-        runner = decodedText;
-
-      }
+    }
 
 
-      if (!runner) {
+    // ========================================
+    // 選手番号が取得できなかった場合
+    // ========================================
 
-        document.getElementById("status").innerHTML =
-          '<span class="error">' +
-          "選手番号を取得できません" +
-          "</span>";
+    if (!runner) {
 
-        isProcessing = false;
+      document.getElementById("status").innerHTML =
+        '<span class="error">' +
+        "選手番号を取得できません" +
+        "</span>";
 
-        document.getElementById("startButton").style.display =
-          "inline-block";
+      document.getElementById("startButton").style.display =
+        "inline-block";
 
-        return;
-      }
+      isProcessing = false;
+
+      return;
+    }
 
 
-      // ====================================
-      // GASへ送信
-      // ====================================
+    // ========================================
+    // GASへ送信
+    // ========================================
 
-      sendRecord(runner);
+    sendRecord(runner);
 
-    });
+  });
 
 }
 
@@ -313,101 +314,78 @@ function stopCamera() {
 function sendRecord(runner) {
 
   document.getElementById("status").textContent =
-    "記録中　No." + runner;
+    "GASへ送信中　No." + runner;
+
 
   const data = {
+
     runner: runner,
+
     cp: CP_ID
+
   };
 
+
+  // ========================================
+  // GASへPOST
+  // no-corsにして通信結果待ちによる問題を回避
+  // ========================================
 
   fetch(API_URL, {
 
     method: "POST",
 
+    mode: "no-cors",
+
     body: JSON.stringify(data),
 
     headers: {
+
       "Content-Type": "text/plain"
-    }
-
-  })
-
-  .then(function(response) {
-
-    return response.text();
-
-  })
-
-  .then(function(result) {
-
-    if (result.trim() === "OK") {
-
-      // ==================================
-      // 記録成功
-      // ==================================
-
-      document.getElementById("status").innerHTML =
-        '<span class="ok">' +
-        "No." + runner +
-        "　CP" + CP_ID +
-        "<br><br>" +
-        "記録しました" +
-        "</span>";
-
-    } else {
-
-      // ==================================
-      // サーバー応答エラー
-      // ==================================
-
-      document.getElementById("status").innerHTML =
-        '<span class="error">' +
-        "サーバーからの応答エラー<br>" +
-        result +
-        "</span>";
 
     }
-
-    // ==================================
-    // カメラは再起動しない
-    // 「カメラを起動」ボタンを表示
-    // ==================================
-
-    isProcessing = false;
-
-    lastRunner = "";
-
-    document.getElementById("startButton").style.display =
-      "inline-block";
-
-  })
-
-
-  .catch(function(error) {
-
-    // ==================================
-    // 通信エラー
-    // ==================================
-
-    document.getElementById("status").innerHTML =
-      '<span class="error">' +
-      "送信エラー<br>" +
-      error +
-      "</span>";
-
-    // ==================================
-    // エラーの場合もボタンを表示
-    // ==================================
-
-    isProcessing = false;
-
-    document.getElementById("startButton").style.display =
-      "inline-block";
 
   });
 
+
+  // ========================================
+  // 送信開始後、画面を記録完了表示にする
+  // ========================================
+
+  document.getElementById("status").innerHTML =
+    '<span class="ok">' +
+    "No." + runner +
+    "　CP" + CP_ID +
+    "<br><br>" +
+    "記録しました" +
+    "</span>";
+
+
+  // ========================================
+  // カメラ起動ボタンを表示
+  // ========================================
+
+  document.getElementById("startButton").style.display =
+    "inline-block";
+
+
+  // 次の読み取りを許可
+  isProcessing = false;
+
 }
+
+
+// ==========================================
+// 初期状態
+// ==========================================
+
+// ページを開いたときはカメラを起動しない
+
+document.getElementById("startButton").style.display =
+  "inline-block";
+
+document.getElementById("status").textContent =
+  "カメラ起動前";
 
 </script>
 
