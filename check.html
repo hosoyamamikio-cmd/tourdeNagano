@@ -168,7 +168,7 @@ function onScanSuccess(decodedText) {
 
   const now = Date.now();
 
-  // 同じQRを3秒以内に何度も読まない
+  // 同じQRの連続読み取りを防止
   if (
     decodedText === lastRunner &&
     now - lastScanTime < 3000
@@ -179,48 +179,47 @@ function onScanSuccess(decodedText) {
   lastRunner = decodedText;
   lastScanTime = now;
 
-  console.log("QR:", decodedText);
+  // まずカメラを停止
+  scanner.stop()
+    .then(function() {
 
+      let runner = "";
 
-  // ========================================
-  // QRの内容からrunnerを取得
-  // ========================================
+      try {
 
-  let runner = "";
+        const url = new URL(decodedText);
 
-  try {
+        runner =
+          url.searchParams.get("runner");
 
-    const url = new URL(decodedText);
+      } catch (error) {
 
-    runner =
-      url.searchParams.get("runner");
+        runner = decodedText;
 
-  } catch (error) {
+      }
 
-    // URL形式でない場合は、
-    // QRの内容そのものを選手番号として扱う
+      if (!runner) {
 
-    runner = decodedText;
+        document.getElementById("status").innerHTML =
+          '<span class="error">' +
+          "選手番号を取得できません" +
+          "</span>";
 
-  }
+        restartCamera();
+        return;
 
+      }
 
-  if (!runner) {
+      // GASへ送信
+      sendRecord(runner);
 
-    document.getElementById("status").innerHTML =
-      '<span class="error">' +
-      "選手番号を取得できません" +
-      "</span>";
+    })
+    .catch(function(error) {
 
-    return;
-  }
+      console.log("カメラ停止エラー", error);
 
+    });
 
-  // ========================================
-  // GASへ送信
-  // ========================================
-
-  sendRecord(runner);
 }
 
 
@@ -233,12 +232,10 @@ function sendRecord(runner) {
   document.getElementById("status").textContent =
     "記録中　No." + runner;
 
-
   const data = {
     runner: runner,
     cp: CP_ID
   };
-
 
   fetch(API_URL, {
 
@@ -256,24 +253,19 @@ function sendRecord(runner) {
 
   .then(result => {
 
-    if (result === "OK") {
+    document.getElementById("status").innerHTML =
+      '<span class="ok">' +
+      "No." + runner +
+      "　CP" + CP_ID +
+      "<br>記録しました" +
+      "</span>";
 
-      document.getElementById("status").innerHTML =
-        '<span class="ok">' +
-        "No." + runner +
-        "　CP" + CP_ID +
-        "<br>記録しました" +
-        "</span>";
+    // 1秒後にカメラを再起動
+    setTimeout(function() {
 
-    } else {
+      restartCamera();
 
-      document.getElementById("status").innerHTML =
-        '<span class="error">' +
-        "サーバーエラー<br>" +
-        result +
-        "</span>";
-
-    }
+    }, 1000);
 
   })
 
@@ -285,11 +277,60 @@ function sendRecord(runner) {
       error +
       "</span>";
 
+    // エラーの場合もカメラを再起動
+    setTimeout(function() {
+
+      restartCamera();
+
+    }, 2000);
+
   });
 
 }
 
-</script>
 
-</body>
-</html>
+// ==========================================
+// カメラ再起動
+// ==========================================
+
+function restartCamera() {
+
+  document.getElementById("status").textContent =
+    "カメラ起動中...";
+
+  scanner.start(
+
+    {
+      facingMode: "environment"
+    },
+
+    {
+      fps: 10,
+      qrbox: {
+        width: 250,
+        height: 250
+      }
+    },
+
+    onScanSuccess
+
+  )
+
+  .then(function() {
+
+    document.getElementById("status").textContent =
+      "QRコード待機中";
+
+  })
+
+  .catch(function(error) {
+
+    document.getElementById("status").innerHTML =
+      '<span class="error">' +
+      "カメラを再起動できません<br>" +
+      error +
+      "</span>";
+
+  });
+
+}
