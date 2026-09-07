@@ -222,45 +222,59 @@ function onScanSuccess(decodedText) {
   // GASへ送信
   // ========================================
 
-  sendRecord(runner);
-}
-
-
-// ==========================================
-// GASへデータ送信
-// ==========================================
-
-function sendRecord(runner) {
+  function sendRecord(runner) {
 
   document.getElementById("status").textContent =
     "記録中　No." + runner;
 
+  const data = {
+    runner: runner,
+    cp: CP_ID
+  };
 
-  const url =
-    API_URL +
-    "?runner=" + encodeURIComponent(runner) +
-    "&cp=" + encodeURIComponent(CP_ID);
+  fetch(API_URL, {
 
+    method: "POST",
 
-  // GETでGASへ送信
-  // カメラページ側では回答を待たない
-  fetch(url, {
-    method: "GET",
-    mode: "no-cors"
+    body: JSON.stringify(data),
+
+    headers: {
+      "Content-Type": "text/plain"
+    }
+
+  })
+  .then(response => response.text())
+
+  .then(result => {
+
+    if (result === "OK") {
+
+      document.getElementById("status").innerHTML =
+        '<span class="ok">' +
+        "No." + runner +
+        "　CP" + CP_ID +
+        "<br>記録しました" +
+        "</span>";
+
+    } else {
+
+      document.getElementById("status").innerHTML =
+        '<span class="error">' +
+        "サーバーエラー" +
+        "</span>";
+
+    }
+
+  })
+
+  .catch(error => {
+
+    document.getElementById("status").innerHTML =
+      '<span class="error">' +
+      "送信エラー<br>" +
+      error +
+      "</span>";
+
   });
 
-
-  // 送信完了表示
-  document.getElementById("status").innerHTML =
-    '<span class="ok">' +
-    "No." + runner +
-    "　CP" + CP_ID +
-    "<br>記録しました" +
-    "</span>";
-
 }
-
-</script>
-
-</body>
-</html>
