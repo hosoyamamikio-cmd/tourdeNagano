@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>山岳マラソン CPチェック</title>
+<title>ツールド長野 CPチェック</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -19,6 +19,7 @@ body {
 
 h1 {
   font-size: 26px;
+  margin-bottom: 5px;
 }
 
 #cp {
@@ -36,14 +37,17 @@ h1 {
 
 #status {
   font-size: 20px;
-  margin: 20px;
+  margin: 20px auto;
   padding: 15px;
+  max-width: 400px;
   background: white;
+  border-radius: 8px;
 }
 
 button {
   font-size: 22px;
   padding: 15px 30px;
+  margin: 10px;
 }
 
 .ok {
@@ -60,9 +64,9 @@ button {
 
 <body>
 
-<h1>山岳マラソン</h1>
+<h1>ツールド長野</h1>
 
-<div id="cp">CP確認中...</div>
+<div id="cp"></div>
 
 <button id="startButton" onclick="startCamera()">
 カメラを起動
@@ -74,31 +78,32 @@ button {
 カメラ起動前
 </div>
 
+
 <script>
 
-// ===============================
-// GASのURL
-// ===============================
+// ==========================================
+// GAS WebアプリURL
+// ==========================================
 
 const API_URL =
-"https://script.google.com/macros/s/ここにGASのURLを入れる/exec";
+"https://script.google.com/macros/s/AKfycbw1nGxnuATbVPHMLag1daFNAzysAwLajM13tx-5q0Cq19Oxv_9aF2VBKGaz3QRZrkJW/exec";
 
 
-// ===============================
-// CP番号
-// ===============================
+// ==========================================
+// CP番号をURLから取得
+// ==========================================
 
 const params = new URLSearchParams(location.search);
 
-const CP_ID = params.get("cp");
+const CP_ID = params.get("cp") || "1";
 
 document.getElementById("cp").textContent =
-  CP_ID ? "CP" + CP_ID : "CP番号エラー";
+"CP" + CP_ID;
 
 
-// ===============================
-// QR読み取り
-// ===============================
+// ==========================================
+// QR読み取り準備
+// ==========================================
 
 let lastRunner = "";
 let lastScanTime = 0;
@@ -106,9 +111,9 @@ let lastScanTime = 0;
 const scanner = new Html5Qrcode("reader");
 
 
-// ===============================
+// ==========================================
 // カメラ起動
-// ===============================
+// ==========================================
 
 function startCamera() {
 
@@ -116,8 +121,10 @@ function startCamera() {
     "カメラ起動中...";
 
   scanner.start(
-    
-    { facingMode: "environment" },
+
+    {
+      facingMode: "environment"
+    },
 
     {
       fps: 10,
@@ -129,7 +136,9 @@ function startCamera() {
 
     onScanSuccess
 
-  ).then(() => {
+  )
+
+  .then(function() {
 
     document.getElementById("status").textContent =
       "QRコード待機中";
@@ -137,7 +146,9 @@ function startCamera() {
     document.getElementById("startButton").style.display =
       "none";
 
-  }).catch(error => {
+  })
+
+  .catch(function(error) {
 
     document.getElementById("status").innerHTML =
       '<span class="error">' +
@@ -146,18 +157,19 @@ function startCamera() {
       "</span>";
 
   });
-
 }
 
 
-// ===============================
-// QR読み取り成功
-// ===============================
+// ==========================================
+// QRコードを読み取ったとき
+// ==========================================
 
 function onScanSuccess(decodedText) {
 
   const now = Date.now();
 
+
+  // 同じQRを3秒以内に何度も読まない
   if (
     decodedText === lastRunner &&
     now - lastScanTime < 3000
@@ -168,75 +180,83 @@ function onScanSuccess(decodedText) {
   lastRunner = decodedText;
   lastScanTime = now;
 
+
+  console.log("QR:", decodedText);
+
+
+  // ========================================
+  // QRの内容を取得
+  // ========================================
+
+  let runner = "";
+
   try {
 
     const url = new URL(decodedText);
 
-    const runner =
+    runner =
       url.searchParams.get("runner");
 
-    if (!runner) {
+  } catch (error) {
 
-      document.getElementById("status").innerHTML =
-        '<span class="error">' +
-        "選手QRではありません" +
-        "</span>";
+    // URL形式でない場合
+    // QRに直接「001」などが入っている場合にも対応
 
-      return;
-    }
-
-    sendRecord(runner);
-
-  } catch (e) {
-
-    document.getElementById("status").innerHTML =
-      '<span class="error">' +
-      "QRコードを読み取れません" +
-      "</span>";
+    runner = decodedText;
 
   }
 
+
+  if (!runner) {
+
+    document.getElementById("status").innerHTML =
+      '<span class="error">' +
+      "選手番号を取得できません" +
+      "</span>";
+
+    return;
+  }
+
+
+  // ========================================
+  // GASへ送信
+  // ========================================
+
+  sendRecord(runner);
 }
 
 
-// ===============================
-// GASへ送信
-// ===============================
+// ==========================================
+// GASへデータ送信
+// ==========================================
 
 function sendRecord(runner) {
 
   document.getElementById("status").textContent =
-    "記録中 No." + runner;
+    "記録中　No." + runner;
 
-  fetch(API_URL, {
 
-    method: "POST",
+  const url =
+    API_URL +
+    "?runner=" + encodeURIComponent(runner) +
+    "&cp=" + encodeURIComponent(CP_ID);
 
-    body: JSON.stringify({
-      runner: runner,
-      cp: CP_ID
-    })
 
-  })
-  .then(response => response.text())
-  .then(result => {
-
-    document.getElementById("status").innerHTML =
-      '<span class="ok">' +
-      "No." + runner +
-      "　CP" + CP_ID +
-      "　記録OK" +
-      "</span>";
-
-  })
-  .catch(error => {
-
-    document.getElementById("status").innerHTML =
-      '<span class="error">' +
-      "送信エラー" +
-      "</span>";
-
+  // GETでGASへ送信
+  // カメラページ側では回答を待たない
+  fetch(url, {
+    method: "GET",
+    mode: "no-cors"
   });
+
+
+  // 送信完了表示
+  document.getElementById("status").innerHTML =
+    '<span class="ok">' +
+    "No." + runner +
+    "　CP" + CP_ID +
+    "<br>記録しました" +
+    "</span>";
 
 }
 
