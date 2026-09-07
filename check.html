@@ -102,7 +102,8 @@ const API_URL =
 
 
 // ==========================================
-// CP番号
+// CP番号をURLから取得
+// 例：check.html?cp=1 → CP1
 // ==========================================
 
 const params = new URLSearchParams(location.search);
@@ -114,7 +115,7 @@ document.getElementById("cp").textContent =
 
 
 // ==========================================
-// QR読み取り
+// QR読み取り準備
 // ==========================================
 
 let scanner = null;
@@ -123,12 +124,77 @@ let isProcessing = false;
 
 
 // ==========================================
+// 読み取り成功音
+// ==========================================
+
+let audioContext = null;
+
+function beep() {
+
+  try {
+
+    if (!audioContext) {
+      audioContext =
+        new (window.AudioContext ||
+             window.webkitAudioContext)();
+    }
+
+    if (audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+
+    const oscillator =
+      audioContext.createOscillator();
+
+    const gainNode =
+      audioContext.createGain();
+
+    oscillator.connect(gainNode);
+
+    gainNode.connect(
+      audioContext.destination
+    );
+
+    // 「ピッ」という音
+    oscillator.frequency.value = 1000;
+
+    oscillator.type = "sine";
+
+    gainNode.gain.setValueAtTime(
+      0.3,
+      audioContext.currentTime
+    );
+
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.01,
+      audioContext.currentTime + 0.15
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+      audioContext.currentTime + 0.15
+    );
+
+  } catch (e) {
+
+    console.log(
+      "音声エラー:",
+      e
+    );
+
+  }
+
+}
+
+
+// ==========================================
 // カメラ起動
 // ==========================================
 
 function startCamera() {
 
-  // すでにカメラが起動していたら何もしない
+  // 二重起動防止
   if (scanner !== null) {
     return;
   }
@@ -141,7 +207,8 @@ function startCamera() {
   document.getElementById("status").textContent =
     "カメラ起動中...";
 
-  scanner = new Html5Qrcode("reader");
+  scanner =
+    new Html5Qrcode("reader");
 
   scanner.start(
 
@@ -156,6 +223,7 @@ function startCamera() {
         width: 200,
         height: 200
       }
+
     },
 
     onScanSuccess
@@ -171,7 +239,10 @@ function startCamera() {
 
   .catch(function(error) {
 
-    console.log("カメラ起動エラー:", error);
+    console.log(
+      "カメラ起動エラー:",
+      error
+    );
 
     scanner = null;
 
@@ -190,23 +261,34 @@ function startCamera() {
 
 
 // ==========================================
-// QRコード読み取り
+// QRコード読み取り成功
 // ==========================================
 
 function onScanSuccess(decodedText) {
 
-  // すでに処理中なら無視
+  // 処理中なら無視
   if (isProcessing) {
     return;
   }
 
   isProcessing = true;
 
-  console.log("QR読み取り:", decodedText);
+
+  // ========================================
+  // 成功音
+  // ========================================
+
+  beep();
+
+
+  console.log(
+    "QR読み取り:",
+    decodedText
+  );
 
 
   // ========================================
-  // QR読み取り直後にカメラを停止
+  // カメラ停止
   // ========================================
 
   stopCamera();
@@ -220,7 +302,8 @@ function onScanSuccess(decodedText) {
 
   try {
 
-    const url = new URL(decodedText);
+    const url =
+      new URL(decodedText);
 
     runner =
       url.searchParams.get("runner");
@@ -228,13 +311,15 @@ function onScanSuccess(decodedText) {
   } catch (error) {
 
     // URLでない場合
+    // QRコードの文字そのものを選手番号にする
+
     runner = decodedText;
 
   }
 
 
   // ========================================
-  // 選手番号が取得できない
+  // 選手番号取得エラー
   // ========================================
 
   if (!runner) {
@@ -272,7 +357,8 @@ function stopCamera() {
     return;
   }
 
-  const currentScanner = scanner;
+  const currentScanner =
+    scanner;
 
   scanner = null;
 
@@ -280,7 +366,9 @@ function stopCamera() {
 
     .then(function() {
 
-      console.log("カメラ停止");
+      console.log(
+        "カメラ停止"
+      );
 
       currentScanner.clear();
 
@@ -299,7 +387,7 @@ function stopCamera() {
 
 
 // ==========================================
-// GASへ送信
+// GASへデータ送信
 // ==========================================
 
 function sendRecord(runner) {
@@ -316,6 +404,10 @@ function sendRecord(runner) {
 
   };
 
+
+  // ========================================
+  // GASへ送信
+  // ========================================
 
   fetch(API_URL, {
 
@@ -335,7 +427,7 @@ function sendRecord(runner) {
 
 
   // ========================================
-  // 記録表示
+  // 記録完了表示
   // ========================================
 
   document.getElementById("status").innerHTML =
@@ -368,7 +460,8 @@ function sendRecord(runner) {
 // 初期状態
 // ==========================================
 
-// ここではカメラを起動しない
+// ページを開いた時点では
+// カメラを起動しない
 
 scanner = null;
 
