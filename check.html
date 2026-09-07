@@ -102,7 +102,7 @@ const API_URL =
 
 
 // ==========================================
-// CP番号をURLから取得
+// CP番号
 // ==========================================
 
 const params = new URLSearchParams(location.search);
@@ -114,16 +114,12 @@ document.getElementById("cp").textContent =
 
 
 // ==========================================
-// QR読み取り準備
+// QR読み取り
 // ==========================================
 
 let scanner = null;
 
 let isProcessing = false;
-
-let lastRunner = "";
-
-let lastScanTime = 0;
 
 
 // ==========================================
@@ -132,8 +128,8 @@ let lastScanTime = 0;
 
 function startCamera() {
 
-  // 二重起動防止
-  if (scanner) {
+  // すでにカメラが起動していたら何もしない
+  if (scanner !== null) {
     return;
   }
 
@@ -175,6 +171,8 @@ function startCamera() {
 
   .catch(function(error) {
 
+    console.log("カメラ起動エラー:", error);
+
     scanner = null;
 
     document.getElementById("startButton").style.display =
@@ -192,83 +190,74 @@ function startCamera() {
 
 
 // ==========================================
-// QRコード読み取り成功
+// QRコード読み取り
 // ==========================================
 
 function onScanSuccess(decodedText) {
 
-  // 処理中なら無視
+  // すでに処理中なら無視
   if (isProcessing) {
     return;
   }
 
-  const now = Date.now();
+  isProcessing = true;
 
-  // 同じQRの連続読み取りを防止
-  if (
-    decodedText === lastRunner &&
-    now - lastScanTime < 3000
-  ) {
+  console.log("QR読み取り:", decodedText);
+
+
+  // ========================================
+  // QR読み取り直後にカメラを停止
+  // ========================================
+
+  stopCamera();
+
+
+  // ========================================
+  // 選手番号取得
+  // ========================================
+
+  let runner = "";
+
+  try {
+
+    const url = new URL(decodedText);
+
+    runner =
+      url.searchParams.get("runner");
+
+  } catch (error) {
+
+    // URLでない場合
+    runner = decodedText;
+
+  }
+
+
+  // ========================================
+  // 選手番号が取得できない
+  // ========================================
+
+  if (!runner) {
+
+    document.getElementById("status").innerHTML =
+      '<span class="error">' +
+      "選手番号を取得できません" +
+      "</span>";
+
+    document.getElementById("startButton").style.display =
+      "inline-block";
+
+    isProcessing = false;
+
     return;
   }
 
-  lastRunner = decodedText;
-  lastScanTime = now;
 
-  // 処理中にする
-  isProcessing = true;
+  // ========================================
+  // GASへ送信
+  // ========================================
 
-  // カメラ停止
-  stopCamera().then(function() {
-
-    let runner = "";
-
-    // ========================================
-    // QRコードから選手番号を取得
-    // ========================================
-
-    try {
-
-      const url = new URL(decodedText);
-
-      runner =
-        url.searchParams.get("runner");
-
-    } catch (error) {
-
-      // URLでない場合はQRの文字そのものを使用
-      runner = decodedText;
-
-    }
-
-
-    // ========================================
-    // 選手番号が取得できなかった場合
-    // ========================================
-
-    if (!runner) {
-
-      document.getElementById("status").innerHTML =
-        '<span class="error">' +
-        "選手番号を取得できません" +
-        "</span>";
-
-      document.getElementById("startButton").style.display =
-        "inline-block";
-
-      isProcessing = false;
-
-      return;
-    }
-
-
-    // ========================================
-    // GASへ送信
-    // ========================================
-
-    sendRecord(runner);
-
-  });
+  sendRecord(runner);
 
 }
 
@@ -279,28 +268,30 @@ function onScanSuccess(decodedText) {
 
 function stopCamera() {
 
-  if (!scanner) {
-    return Promise.resolve();
+  if (scanner === null) {
+    return;
   }
 
-  return scanner.stop()
+  const currentScanner = scanner;
+
+  scanner = null;
+
+  currentScanner.stop()
 
     .then(function() {
 
-      scanner.clear();
+      console.log("カメラ停止");
 
-      scanner = null;
+      currentScanner.clear();
 
     })
 
     .catch(function(error) {
 
       console.log(
-        "カメラ停止エラー",
+        "カメラ停止エラー:",
         error
       );
-
-      scanner = null;
 
     });
 
@@ -308,13 +299,13 @@ function stopCamera() {
 
 
 // ==========================================
-// GASへデータ送信
+// GASへ送信
 // ==========================================
 
 function sendRecord(runner) {
 
   document.getElementById("status").textContent =
-    "GASへ送信中　No." + runner;
+    "記録中　No." + runner;
 
 
   const data = {
@@ -325,11 +316,6 @@ function sendRecord(runner) {
 
   };
 
-
-  // ========================================
-  // GASへPOST
-  // no-corsにして通信結果待ちによる問題を回避
-  // ========================================
 
   fetch(API_URL, {
 
@@ -349,7 +335,7 @@ function sendRecord(runner) {
 
 
   // ========================================
-  // 送信開始後、画面を記録完了表示にする
+  // 記録表示
   // ========================================
 
   document.getElementById("status").innerHTML =
@@ -369,7 +355,10 @@ function sendRecord(runner) {
     "inline-block";
 
 
-  // 次の読み取りを許可
+  // ========================================
+  // 次のQR読み取りを許可
+  // ========================================
+
   isProcessing = false;
 
 }
@@ -379,7 +368,11 @@ function sendRecord(runner) {
 // 初期状態
 // ==========================================
 
-// ページを開いたときはカメラを起動しない
+// ここではカメラを起動しない
+
+scanner = null;
+
+isProcessing = false;
 
 document.getElementById("startButton").style.display =
   "inline-block";
