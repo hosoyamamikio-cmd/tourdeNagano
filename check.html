@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>ツールド長野 CPチェック</title>
+<title>山岳マラソン CPチェック</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -18,13 +18,13 @@ body {
 }
 
 h1 {
-  font-size: 28px;
+  font-size: 26px;
 }
 
 #cp {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: bold;
-  margin: 10px;
+  margin: 15px;
 }
 
 #reader {
@@ -60,7 +60,7 @@ button {
 
 <body>
 
-<h1>ツールド長野</h1>
+<h1>山岳マラソン</h1>
 
 <div id="cp">CP確認中...</div>
 
@@ -75,15 +75,30 @@ button {
 </div>
 
 <script>
-const API_URL = https://script.google.com/macros/s/AKfycbw1nGxnuATbVPHMLag1daFNAzysAwLajM13tx-5q0Cq19Oxv_9aF2VBKGaz3QRZrkJW/exec
 
-"https://script.google.com/macros/s/ここをあなたのGAS_URLに変更/exec";
+// ===============================
+// GASのURL
+// ===============================
+
+const API_URL =
+"https://script.google.com/macros/s/ここにGASのURLを入れる/exec";
+
+
+// ===============================
+// CP番号
+// ===============================
 
 const params = new URLSearchParams(location.search);
+
 const CP_ID = params.get("cp");
 
 document.getElementById("cp").textContent =
   CP_ID ? "CP" + CP_ID : "CP番号エラー";
+
+
+// ===============================
+// QR読み取り
+// ===============================
 
 let lastRunner = "";
 let lastScanTime = 0;
@@ -91,16 +106,17 @@ let lastScanTime = 0;
 const scanner = new Html5Qrcode("reader");
 
 
+// ===============================
+// カメラ起動
+// ===============================
+
 function startCamera() {
 
   document.getElementById("status").textContent =
     "カメラ起動中...";
 
-  document.getElementById("startButton").style.display =
-    "none";
-
   scanner.start(
-
+    
     { facingMode: "environment" },
 
     {
@@ -113,30 +129,30 @@ function startCamera() {
 
     onScanSuccess
 
-  )
-
-  .then(() => {
+  ).then(() => {
 
     document.getElementById("status").textContent =
       "QRコード待機中";
 
-  })
+    document.getElementById("startButton").style.display =
+      "none";
 
-  .catch(error => {
+  }).catch(error => {
 
     document.getElementById("status").innerHTML =
       '<span class="error">' +
-      "カメラを起動できません。<br>" +
+      "カメラを起動できません<br><br>" +
       error +
       "</span>";
-
-    document.getElementById("startButton").style.display =
-      "inline-block";
 
   });
 
 }
 
+
+// ===============================
+// QR読み取り成功
+// ===============================
 
 function onScanSuccess(decodedText) {
 
@@ -163,7 +179,7 @@ function onScanSuccess(decodedText) {
 
       document.getElementById("status").innerHTML =
         '<span class="error">' +
-        "このQRは選手QRではありません" +
+        "選手QRではありません" +
         "</span>";
 
       return;
@@ -183,6 +199,10 @@ function onScanSuccess(decodedText) {
 }
 
 
+// ===============================
+// GASへ送信
+// ===============================
+
 function sendRecord(runner) {
 
   document.getElementById("status").textContent =
@@ -193,16 +213,12 @@ function sendRecord(runner) {
     method: "POST",
 
     body: JSON.stringify({
-
       runner: runner,
       cp: CP_ID
-
     })
 
   })
-
   .then(response => response.text())
-
   .then(result => {
 
     document.getElementById("status").innerHTML =
@@ -213,7 +229,6 @@ function sendRecord(runner) {
       "</span>";
 
   })
-
   .catch(error => {
 
     document.getElementById("status").innerHTML =
