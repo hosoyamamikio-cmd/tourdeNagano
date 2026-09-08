@@ -102,14 +102,11 @@ button {
   CP確認中...
 </div>
 
-
 <div id="reader"></div>
-
 
 <div id="status">
   カメラ起動前
 </div>
-
 
 <button id="startButton" onclick="startCamera()">
   カメラを起動
@@ -154,25 +151,24 @@ let isProcessing = false;
 
 
 // ==========================================
-// 音声
+// 音声用
 // ==========================================
 
 let audioContext = null;
 
 
 // ==========================================
-// 音声準備
+// 音声機能を有効化
 //
 // 「カメラを起動」ボタンを押した時に
-// 音声機能も準備する
-//
-// Android対策
+// 実行することでAndroid対策
 // ==========================================
 
 function prepareAudio() {
 
   try {
 
+    // AudioContextを作成
     if (!audioContext) {
 
       audioContext =
@@ -184,20 +180,89 @@ function prepareAudio() {
     }
 
 
+    // AudioContextを再開
     if (
-      audioContext.state ===
-      "suspended"
+      audioContext.state === "suspended"
     ) {
 
-      audioContext.resume();
+      return audioContext.resume();
 
     }
 
+
+    return Promise.resolve();
+
   }
+
   catch (e) {
 
     console.log(
       "音声準備エラー:",
+      e
+    );
+
+    return Promise.resolve();
+
+  }
+
+}
+
+
+// ==========================================
+// 音声のロック解除
+//
+// Androidのブラウザ対策
+//
+// ユーザーが「カメラを起動」を押した
+// タイミングで一度音声を再生する
+//
+// 音量はゼロなので実際には聞こえない
+// ==========================================
+
+function unlockAudio() {
+
+  try {
+
+    if (!audioContext) {
+      return;
+    }
+
+
+    const oscillator =
+      audioContext.createOscillator();
+
+    const gainNode =
+      audioContext.createGain();
+
+
+    oscillator.connect(
+      gainNode
+    );
+
+    gainNode.connect(
+      audioContext.destination
+    );
+
+
+    // 音量ゼロ
+    gainNode.gain.setValueAtTime(
+      0,
+      audioContext.currentTime
+    );
+
+
+    oscillator.start();
+
+    oscillator.stop(
+      audioContext.currentTime + 0.05
+    );
+
+  }
+
+  catch (e) {
+
+    console.log(
+      "音声ロック解除エラー:",
       e
     );
 
@@ -216,14 +281,18 @@ function beep() {
 
     if (!audioContext) {
 
-      prepareAudio();
+      console.log(
+        "AudioContextがありません"
+      );
+
+      return;
 
     }
 
 
+    // AudioContextが停止していたら再開
     if (
-      audioContext.state ===
-      "suspended"
+      audioContext.state === "suspended"
     ) {
 
       audioContext.resume();
@@ -243,27 +312,30 @@ function beep() {
       gainNode
     );
 
-
     gainNode.connect(
       audioContext.destination
     );
 
 
-    // ピッという音
+    // ======================================
+    // 「ピッ！」の音
+    // ======================================
+
     oscillator.frequency.value =
       1000;
-
 
     oscillator.type =
       "sine";
 
 
+    // 音量
     gainNode.gain.setValueAtTime(
       0.3,
       audioContext.currentTime
     );
 
 
+    // 0.15秒で音を消す
     gainNode.gain.exponentialRampToValueAtTime(
       0.01,
       audioContext.currentTime + 0.15
@@ -277,7 +349,13 @@ function beep() {
       audioContext.currentTime + 0.15
     );
 
+
+    console.log(
+      "読み取り成功音"
+    );
+
   }
+
   catch (e) {
 
     console.log(
@@ -291,18 +369,53 @@ function beep() {
 
 
 // ==========================================
+// Android振動
+// ==========================================
+
+function vibrateSuccess() {
+
+  try {
+
+    if (
+      typeof navigator.vibrate ===
+      "function"
+    ) {
+
+      // 短く1回振動
+      navigator.vibrate(150);
+
+      console.log(
+        "振動実行"
+      );
+
+    }
+    else {
+
+      console.log(
+        "この端末はVibration API非対応"
+      );
+
+    }
+
+  }
+
+  catch (e) {
+
+    console.log(
+      "振動エラー:",
+      e
+    );
+
+  }
+
+}
+
+
+// ==========================================
 // カメラ起動
 // ==========================================
 
-function startCamera() {
-
-  // ----------------------------------------
-  // Android対策
-  // ボタンを押した時点で音声を準備
-  // ----------------------------------------
-
-  prepareAudio();
-
+async function startCamera() {
 
   // ----------------------------------------
   // 二重起動防止
@@ -314,6 +427,26 @@ function startCamera() {
 
   }
 
+
+  // ----------------------------------------
+  // ★ ユーザーがボタンを押した直後に
+  // ★ 音声機能を有効化
+  // ----------------------------------------
+
+  await prepareAudio();
+
+
+  // ----------------------------------------
+  // ★ Android対策
+  // 音声ロックを解除
+  // ----------------------------------------
+
+  unlockAudio();
+
+
+  // ----------------------------------------
+  // 初期化
+  // ----------------------------------------
 
   isProcessing = false;
 
@@ -393,7 +526,7 @@ function startCamera() {
     scanner = null;
 
 
-    // エラー時はボタンを再表示
+    // ボタンを再表示
     document.getElementById(
       "startButton"
     ).style.display =
@@ -446,39 +579,30 @@ function onScanSuccess(
   );
 
 
-  // ----------------------------------------
-  // 成功音
-  // ----------------------------------------
+  // ========================================
+  // ★ 読み取り成功音
+  // ========================================
 
   beep();
 
 
-  // ----------------------------------------
-  // Android対策
-  // 振動
-  // ----------------------------------------
+  // ========================================
+  // ★ Android振動
+  // ========================================
 
-  if (
-    "vibrate" in navigator
-  ) {
-
-    navigator.vibrate(
-      150
-    );
-
-  }
+  vibrateSuccess();
 
 
-  // ----------------------------------------
+  // ========================================
   // カメラ停止
-  // ----------------------------------------
+  // ========================================
 
   stopCamera();
 
 
-  // ----------------------------------------
+  // ========================================
   // 選手番号取得
-  // ----------------------------------------
+  // ========================================
 
   let runner = "";
 
@@ -497,6 +621,7 @@ function onScanSuccess(
       );
 
   }
+
   catch (error) {
 
     // URL形式でない場合
@@ -508,9 +633,9 @@ function onScanSuccess(
   }
 
 
-  // ----------------------------------------
+  // ========================================
   // 選手番号エラー
-  // ----------------------------------------
+  // ========================================
 
   if (!runner) {
 
@@ -536,9 +661,9 @@ function onScanSuccess(
   }
 
 
-  // ----------------------------------------
+  // ========================================
   // GASへ送信
-  // ----------------------------------------
+  // ========================================
 
   sendRecord(
     runner
@@ -566,10 +691,9 @@ function stopCamera() {
     scanner;
 
 
-  // ここでnullにして
-  // 再起動できる状態にする
-  //
-  // ただし自動再起動はしない
+  // ----------------------------------------
+  // ここでnull
+  // ----------------------------------------
 
   scanner = null;
 
@@ -635,8 +759,6 @@ function sendRecord(
 
   // ----------------------------------------
   // GASへ送信
-  //
-  // no-corsを使用
   // ----------------------------------------
 
   fetch(
@@ -665,9 +787,9 @@ function sendRecord(
   );
 
 
-  // ----------------------------------------
-  // 記録完了表示
-  // ----------------------------------------
+  // ========================================
+  // ★ 記録完了表示
+  // ========================================
 
   document.getElementById(
     "status"
@@ -687,11 +809,11 @@ function sendRecord(
     "</span>";
 
 
-  // ----------------------------------------
-  // カメラ起動ボタンを表示
+  // ========================================
+  // ★ カメラ起動ボタン表示
   //
   // 自動では起動しない
-  // ----------------------------------------
+  // ========================================
 
   document.getElementById(
     "startButton"
@@ -699,11 +821,12 @@ function sendRecord(
     "inline-block";
 
 
-  // ----------------------------------------
+  // ========================================
   // 次の読み取りを許可
-  // ----------------------------------------
+  // ========================================
 
-  isProcessing = false;
+  isProcessing =
+    false;
 
 }
 
@@ -716,7 +839,7 @@ function sendRecord(
 // カメラを起動しない
 //
 // 「カメラを起動」ボタンを押した時だけ
-// startCamera() が実行される
+// カメラが起動する
 // ==========================================
 
 scanner = null;
