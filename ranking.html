@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>ツールド長野 リアルタイム順位</title>
+
+<style>
+
+/* ==========================================
+   基本
+========================================== */
+
+body {
+
+  font-family: sans-serif;
+
+  margin: 0;
+
+  padding: 20px 10px;
+
+  background: #f5f5f5;
+
+  text-align: center;
+
+  box-sizing: border-box;
+
+}
+
+
+/* ==========================================
+   タイトル
+========================================== */
+
+h1 {
+
+  font-size: 28px;
+
+  margin: 5px 0 5px 0;
+
+}
+
+
+/* ==========================================
+   更新時刻
+========================================== */
+
+#updated {
+
+  font-size: 14px;
+
+  color: #666;
+
+  margin-bottom: 15px;
+
+}
+
+
+/* ==========================================
+   ログイン画面
+========================================== */
+
+.login {
+
+  background: white;
+
+  max-width: 400px;
+
+  margin: 30px auto;
+
+  padding: 25px 15px;
+
+  border-radius: 10px;
+
+  box-sizing: border-box;
+
+}
+
+
+.login h2 {
+
+  font-size: 24px;
+
+  margin-top: 0;
+
+}
+
+
+.login p {
+
+  font-size: 16px;
+
+}
+
+
+/* ==========================================
+   パスワード
+========================================== */
+
+input {
+
+  font-size: 22px;
+
+  padding: 12px;
+
+  width: 90%;
+
+  box-sizing: border-box;
+
+  border: 1px solid #aaa;
+
+  border-radius: 6px;
+
+}
+
+
+/* ==========================================
+   ボタン
+========================================== */
+
+button {
+
+  font-size: 20px;
+
+  font-weight: bold;
+
+  padding: 13px 30px;
+
+  margin-top: 15px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  cursor: pointer;
+
+}
+
+
+/* ==========================================
+   エラー
+========================================== */
+
+#error {
+
+  color: red;
+
+  font-weight: bold;
+
+  margin-top: 15px;
+
+}
+
+
+/* ==========================================
+   順位表示
+========================================== */
+
+#ranking {
+
+  max-width: 600px;
+
+  margin: auto;
+
+}
+
+
+/* ==========================================
+   選手1人分
+========================================== */
+
+.person {
+
+  background: white;
+
+  margin: 8px 0;
+
+  padding: 15px 10px;
+
+  border-radius: 8px;
+
+  display: flex;
+
+  align-items: center;
+
+  text-align: left;
+
+  box-sizing: border-box;
+
+}
+
+
+/* ==========================================
+   順位
+========================================== */
+
+.rank {
+
+  width: 65px;
+
+  font-size: 24px;
+
+  font-weight: bold;
+
+  text-align: center;
+
+  flex-shrink: 0;
+
+}
+
+
+/* ==========================================
+   選手情報
+========================================== */
+
+.info {
+
+  flex: 1;
+
+  min-width: 0;
+
+}
+
+
+/* ==========================================
+   runner番号
+========================================== */
+
+.runner {
+
+  font-size: 18px;
+
+  color: #555;
+
+}
+
+
+/* ==========================================
+   選手名
+========================================== */
+
+.name {
+
+  font-size: 24px;
+
+  font-weight: bold;
+
+  word-break: break-all;
+
+}
+
+
+/* ==========================================
+   CP
+========================================== */
+
+.cp {
+
+  font-size: 20px;
+
+  font-weight: bold;
+
+  text-align: right;
+
+  min-width: 55px;
+
+  flex-shrink: 0;
+
+}
+
+
+/* ==========================================
+   CP未通過
+========================================== */
+
+.cp.empty {
+
+  color: #999;
+
+  font-weight: normal;
+
+}
+
+
+/* ==========================================
+   データなし
+========================================== */
+
+.empty {
+
+  background: white;
+
+  padding: 20px;
+
+  border-radius: 10px;
+
+}
+
+
+/* ==========================================
+   スマホ用
+========================================== */
+
+@media screen and (max-width: 480px) {
+
+  body {
+
+    padding: 15px 8px;
+
+  }
+
+
+  h1 {
+
+    font-size: 26px;
+
+  }
+
+
+  .person {
+
+    padding: 13px 5px;
+
+  }
+
+
+  .rank {
+
+    width: 55px;
+
+    font-size: 22px;
+
+  }
+
+
+  .runner {
+
+    font-size: 16px;
+
+  }
+
+
+  .name {
+
+    font-size: 22px;
+
+  }
+
+
+  .cp {
+
+    font-size: 18px;
+
+    min-width: 50px;
+
+  }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- ======================================
+     タイトル
+======================================= -->
+
+<h1>
+  ツールド長野
+</h1>
+
+
+<div id="updated"></div>
+
+
+<!-- ======================================
+     パスワード画面
+======================================= -->
+
+<div id="login" class="login">
+
+  <h2>
+    リアルタイム順位
+  </h2>
+
+  <p>
+    参加者・関係者用パスワード
+  </p>
+
+
+  <input
+    type="password"
+    id="password"
+    placeholder="パスワード"
+    autocomplete="off"
+  >
+
+
+  <br>
+
+
+  <button
+    id="loginButton"
+    onclick="showRanking()"
+  >
+    順位を見る
+  </button>
+
+
+  <div id="error"></div>
+
+</div>
+
+
+<!-- ======================================
+     順位表示
+======================================= -->
+
+<div id="ranking"></div>
+
+
+<script>
+
+
+// ==========================================
+// GAS WebアプリURL
+// ==========================================
+
+const API_URL =
+"https://script.google.com/macros/s/AKfycbw1nGxnuATbVPHMLag1daFNAzysAwLajM13tx-5q0Cq19Oxv_9aF2VBKGaz3QRZrkJW/exec";
+
+
+// ==========================================
+// 順位を見る
+// ==========================================
+
+function showRanking() {
+
+  const password =
+    document.getElementById(
+      "password"
+    ).value.trim();
+
+
+  // ----------------------------------------
+  // パスワード未入力
+  // ----------------------------------------
+
+  if (!password) {
+
+    document.getElementById(
+      "error"
+    ).textContent =
+      "パスワードを入力してください";
+
+    return;
+
+  }
+
+
+  // ----------------------------------------
+  // 確認中
+  // ----------------------------------------
+
+  document.getElementById(
+    "error"
+  ).textContent =
+    "確認中...";
+
+
+  document.getElementById(
+    "loginButton"
+  ).disabled =
+    true;
+
+
+  // ----------------------------------------
+  // GASへ問い合わせ
+  // ----------------------------------------
+
+  const url =
+    API_URL +
+    "?type=ranking" +
+    "&password=" +
+    encodeURIComponent(password);
+
+
+  fetch(url)
+
+    .then(function(response) {
+
+      if (!response.ok) {
+
+        throw new Error(
+          "HTTPエラー：" +
+          response.status
+        );
+
+      }
+
+      return response.json();
+
+    })
+
+
+    .then(function(result) {
+
+      console.log(
+        "GAS response:",
+        result
+      );
+
+
+      // ------------------------------------
+      // パスワードエラー
+      // ------------------------------------
+
+      if (!result.success) {
+
+        document.getElementById(
+          "error"
+        ).textContent =
+          result.message ||
+          "パスワードが違います";
+
+
+        document.getElementById(
+          "loginButton"
+        ).disabled =
+          false;
+
+
+        return;
+
+      }
+
+
+      // ------------------------------------
+      // ログイン成功
+      // ------------------------------------
+
+      document.getElementById(
+        "login"
+      ).style.display =
+        "none";
+
+
+      document.getElementById(
+        "error"
+      ).textContent =
+        "";
+
+
+      // ------------------------------------
+      // 順位表示
+      // ------------------------------------
+
+      displayRanking(
+        result.ranking
+      );
+
+    })
+
+
+    .catch(function(error) {
+
+      console.log(
+        "通信エラー:",
+        error
+      );
+
+
+      document.getElementById(
+        "error"
+      ).textContent =
+        "通信エラーが発生しました";
+
+
+      document.getElementById(
+        "loginButton"
+      ).disabled =
+        false;
+
+    });
+
+}
+
+
+// ==========================================
+// 順位表示
+// ==========================================
+
+function displayRanking(data) {
+
+  const container =
+    document.getElementById(
+      "ranking"
+    );
+
+
+  // ----------------------------------------
+  // データなし
+  // ----------------------------------------
+
+  if (
+    !data ||
+    data.length === 0
+  ) {
+
+    container.innerHTML =
+      '<div class="empty">' +
+      "通過記録がありません" +
+      "</div>";
+
+    return;
+
+  }
+
+
+  // ----------------------------------------
+  // HTML作成
+  // ----------------------------------------
+
+  let html = "";
+
+
+  data.forEach(function(person) {
+
+
+    // --------------------------------------
+    // CP表示
+    // --------------------------------------
+
+    let cpText = "";
+
+    let cpClass = "cp empty";
+
+
+    if (
+      person.cp !== "" &&
+      person.cp !== null &&
+      person.cp !== undefined
+    ) {
+
+      cpText =
+        "CP" +
+        person.cp;
+
+      cpClass =
+        "cp";
+
+    }
+
+
+    // --------------------------------------
+    // 選手名
+    // --------------------------------------
+
+    let name =
+      person.name || "";
+
+
+    if (!name) {
+
+      name =
+        "名前未登録";
+
+    }
+
+
+    // --------------------------------------
+    // 順位
+    // --------------------------------------
+
+    html +=
+
+      '<div class="person">' +
+
+
+        '<div class="rank">' +
+
+          person.rank +
+
+          '位' +
+
+        '</div>' +
+
+
+        '<div class="info">' +
+
+
+          '<div class="runner">' +
+
+            'No.' +
+
+            person.runner +
+
+          '</div>' +
+
+
+          '<div class="name">' +
+
+            escapeHtml(name) +
+
+          '</div>' +
+
+
+        '</div>' +
+
+
+        '<div class="' +
+
+          cpClass +
+
+        '">' +
+
+          cpText +
+
+        '</div>' +
+
+
+      '</div>';
+
+  });
+
+
+  container.innerHTML =
+    html;
+
+
+  // ----------------------------------------
+  // 更新時刻
+  // ----------------------------------------
+
+  document.getElementById(
+    "updated"
+  ).textContent =
+
+    "更新：" +
+
+    new Date()
+      .toLocaleTimeString(
+        "ja-JP"
+      );
+
+}
+
+
+// ==========================================
+// HTMLエスケープ
+// ==========================================
+
+function escapeHtml(text) {
+
+  return String(text)
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+
+</script>
+
+
+</body>
+
+</html>
